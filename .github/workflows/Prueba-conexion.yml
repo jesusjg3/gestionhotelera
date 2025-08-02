@@ -1,32 +1,77 @@
-- name: preparar SSH y variables (con debug)
-  env:
-    SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-    SSH_HOST: ${{ secrets.SSH_HOST }}
-    SSH_USER: ${{ secrets.SSH_USER }}
-    WORK_DIR: ${{ secrets.WORK_DIR }}
-    MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
-  run: |
-    set -x  # habilita traza para ver qué se ejecuta (no mostrará el contenido de secrets, están enmascarados)
-    umask 077  # que los archivos nuevos tengan permisos seguros por defecto
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-    # asegurar ~/.ssh y sus permisos
-    if [ -d ~/.ssh ]; then
-      chmod 700 ~/.ssh
-    else
-      mkdir -p ~/.ssh
-      chmod 700 ~/.ssh
-    fi
+jobs:
+  run_pull:
+    name: run pull
+    runs-on: ubuntu-latest
 
-    # escribir la clave privada (elimina CR por si la clave vino con \r)
-    printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/id_rsa
-    chmod 600 ~/.ssh/id_rsa
+    steps:
+      - name: preparar SSH y variables (con debug y chequeos)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          WORK_DIR: ${{ secrets.WORK_DIR }}
+          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
+        run: |
+          set -x  # traza para depuración
+          umask 077
 
-    # verificar que el archivo se escribió (solo tamaño, no contenido)
-    ls -l ~/.ssh/id_rsa
-    wc -l ~/.ssh/id_rsa
+          # Validar que los secrets no estén vacíos (no se imprime su contenido)
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "ERROR: SSH_PRIVATE_KEY está vacío" >&2
+            exit 1
+          fi
+          if [ -z "$SSH_HOST" ]; then
+            echo "ERROR: SSH_HOST está vacío" >&2
+            exit 1
+          fi
+          if [ -z "$SSH_USER" ]; then
+            echo "ERROR: SSH_USER está vacío" >&2
+            exit 1
+          fi
+          if [ -z "$WORK_DIR" ]; then
+            echo "ERROR: WORK_DIR está vacío" >&2
+            exit 1
+          fi
+          if [ -z "$MAIN_BRANCH" ]; then
+            echo "ERROR: MAIN_BRANCH está vacío" >&2
+            exit 1
+          fi
 
-    # agregar host remoto a known_hosts
-    ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          # Asegurar carpeta .ssh con permisos correctos
+          if [ -d ~/.ssh ]; then
+            chmod 700 ~/.ssh
+          else
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+          fi
 
-    # mostrar la entrada recién añadida (clave del host), no revela nada sensible del remoto
-    tail -n 5 ~/.ssh/known_hosts
+          # Escribir la clave privada, eliminando CR si los hay
+          printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Verificar que el archivo se escribió (tamaño/lineas)
+          ls -l ~/.ssh/id_rsa
+          wc -l ~/.ssh/id_rsa
+
+          # Añadir el host remoto a known_hosts
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          tail -n 5 ~/.ssh/known_hosts
+
+      - name: conectar y hacer pull (con salida detallada)
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          WORK_DIR: ${{ secrets.WORK_DIR }}
+          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
+        run: |
+          ssh -o StrictHostKeyChecking=yes -vvv "$SSH_USER@$SSH_HOST" \
+            "cd \"$WORK_DIR\" && git fetch origin \"$MAIN_BRANCH\" && git checkout \"$MAIN_BRANCH\" && git pull origin \"$MAIN_BRANCH\""
+
+      - name: limpieza
+        run: rm -rf ~/.ssh
