@@ -14,18 +14,33 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Agregar host remoto a known_hosts
+      - name: Preparar carpeta SSH y known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Debug SSH folder
+        run: |
+          ls -la ~/.ssh
+          cat ~/.ssh/known_hosts || echo "known_hosts vacío"
+
+      - name: Agregar host remoto a known_hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts || true
+
+      - name: Prueba conexión SSH
+        run: |
+          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo conexión exitosa"
 
       - name: Verificar WORK_DIR en el servidor remoto
         run: |
-          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "if [ ! -d '${{ secrets.WORK_DIR }}' ]; then echo 'WORK_DIR no existe'; exit 1; fi"
+          ssh -o StrictHostKeyChecking=accept-new -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "if [ ! -d '${{ secrets.WORK_DIR }}' ]; then echo 'WORK_DIR no existe'; exit 1; fi"
 
       - name: Desplegar en el servidor remoto
         run: |
-          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -l -c '
+          ssh -o StrictHostKeyChecking=accept-new -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -l -c '
             set -e
             cd "${{ secrets.WORK_DIR }}" || { echo "No se puede acceder a WORK_DIR"; exit 1; }
             if [ ! -d .git ]; then
