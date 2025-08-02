@@ -19,30 +19,24 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Verificar WORK_DIR en el servidor remoto
+        run: |
+          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "if [ ! -d '${{ secrets.WORK_DIR }}' ]; then echo 'WORK_DIR no existe'; exit 1; fi"
+
       - name: Desplegar en el servidor remoto
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -l -c '
+          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -l -c '
             set -e
-
-            cd '"${{ secrets.WORK_DIR }}"'
-
-            # Si no está clonado aún, clona; si ya está, actualiza
+            cd "${{ secrets.WORK_DIR }}" || { echo "No se puede acceder a WORK_DIR"; exit 1; }
             if [ ! -d .git ]; then
-              git clone --branch '"${{ secrets.MAIN_BRANCH }}"' https://github.com/jesusjg3/gestionhotelera.git . 
+              git clone --branch "${{ secrets.MAIN_BRANCH }}" https://github.com/jesusjg3/gestionhotelera.git . || { echo "Error en git clone"; exit 1; }
             else
-              git fetch origin
-              git reset --hard origin/'"${{ secrets.MAIN_BRANCH }}"'
+              git fetch origin || { echo "Error en git fetch"; exit 1; }
+              git reset --hard origin/"${{ secrets.MAIN_BRANCH }}" || { echo "Error en git reset"; exit 1; }
             fi
-
-            # Instala/actualiza dependencias (puede ser rápido si no hay cambios)
-            composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-
-            # Ejecutar migraciones pendientes (no afecta si no hay nuevas)
-            php artisan migrate --force
-
-            # Cacheos
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-
-
+            composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction || { echo "Error en composer install"; exit 1; }
+            php artisan migrate --force || { echo "Error en artisan migrate"; exit 1; }
+            php artisan config:cache || { echo "Error en config:cache"; exit 1; }
+            php artisan route:cache || { echo "Error en route:cache"; exit 1; }
+            php artisan view:cache || { echo "Error en view:cache"; exit 1; }
+          '
