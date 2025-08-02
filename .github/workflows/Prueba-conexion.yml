@@ -1,37 +1,32 @@
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+- name: preparar SSH y variables (con debug)
+  env:
+    SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    SSH_HOST: ${{ secrets.SSH_HOST }}
+    SSH_USER: ${{ secrets.SSH_USER }}
+    WORK_DIR: ${{ secrets.WORK_DIR }}
+    MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
+  run: |
+    set -x  # habilita traza para ver qué se ejecuta (no mostrará el contenido de secrets, están enmascarados)
+    umask 077  # que los archivos nuevos tengan permisos seguros por defecto
 
-jobs:
-  run_pull:
-    name: run pull
-    runs-on: ubuntu-latest
+    # asegurar ~/.ssh y sus permisos
+    if [ -d ~/.ssh ]; then
+      chmod 700 ~/.ssh
+    else
+      mkdir -p ~/.ssh
+      chmod 700 ~/.ssh
+    fi
 
-    steps:
-      - name: preparar SSH y variables
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          WORK_DIR: ${{ secrets.WORK_DIR }}
-          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+    # escribir la clave privada (elimina CR por si la clave vino con \r)
+    printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/id_rsa
+    chmod 600 ~/.ssh/id_rsa
 
-      - name: conectar y hacer pull (con debug si falla)
-        env:
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          WORK_DIR: ${{ secrets.WORK_DIR }}
-          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
-        run: |
-          ssh -o StrictHostKeyChecking=yes -vvv "$SSH_USER@$SSH_HOST" \
-            "cd \"$WORK_DIR\" && git fetch origin \"$MAIN_BRANCH\" && git checkout \"$MAIN_BRANCH\" && git pull origin \"$MAIN_BRANCH\""
+    # verificar que el archivo se escribió (solo tamaño, no contenido)
+    ls -l ~/.ssh/id_rsa
+    wc -l ~/.ssh/id_rsa
 
-      - name: limpieza
-        run: rm -rf ~/.ssh
+    # agregar host remoto a known_hosts
+    ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+    # mostrar la entrada recién añadida (clave del host), no revela nada sensible del remoto
+    tail -n 5 ~/.ssh/known_hosts
