@@ -35,12 +35,21 @@ jobs:
           fi
           php artisan key:generate --ansi
           
-          sed -i "s/^APP_ENV=.*/APP_ENV=production/" .env
-          sed -i "s/^APP_DEBUG=.*/APP_DEBUG=false/" .env
-          sed -i "s/^DB_CONNECTION=.*/DB_CONNECTION=pgsql/" .env
-          sed -i "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" .env
-          sed -i "s/^DB_PORT=.*/DB_PORT=5432/" .env
-          sed -i "s/^DB_DATABASE=.*/DB_DATABASE=gestionhoteles/" .env
-          sed -i "s/^DB_USERNAME=.*/DB_USERNAME=gestionhoteles2024/" .env
-          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ubuntuhoteles2024205/" .env
+          set_var() {
+          local key="$1"
+          local value="$2"
+          if grep -qE "^[# ]*${key}=" .env; then
+            sed -i "s|^[# ]*${key}=.*|${key}=${value}|" .env
+          else
+            echo "${key}=${value}" >> .env
+          fi
+          }
 
+          set_var APP_ENV production
+          set_var APP_DEBUG false
+          set_var DB_CONNECTION pgsql
+          set_var DB_HOST 127.0.0.1
+          set_var DB_PORT 5432
+          set_var DB_DATABASE gestionhoteles
+          set_var DB_USERNAME gestionhoteles2024
+          set_var DB_PASSWORD ubuntuhoteles2024205
