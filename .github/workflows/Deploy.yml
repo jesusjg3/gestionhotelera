@@ -53,3 +53,11 @@ jobs:
           set_var DB_DATABASE gestionhoteles
           set_var DB_USERNAME gestionhoteles2024
           set_var DB_PASSWORD ubuntuhoteles2024205
+
+      - name: Ajustar permisos
+        run: |
+            sudo chown -R www-data:www-data $BASE_PATH/$PROJECT_NAME/storage
+            sudo chown -R www-data:www-data $BASE_PATH/$PROJECT_NAME/bootstrap/cache
+            sudo chmod -R 775 $BASE_PATH/$PROJECT_NAME/storage
+            sudo chmod -R 775 $BASE_PATH/$PROJECT_NAME/bootstrap/cache
+
