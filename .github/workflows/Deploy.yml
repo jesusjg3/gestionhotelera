@@ -1,0 +1,28 @@
+name: Despliegue Laravel básico
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    env:
+      PROJECT_NAME: gestionhotelera          # Cambia este nombre por tu carpeta
+      BASE_PATH: /home/jesusjg3/programs # Cambia esta ruta si quieres otro path
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Eliminar carpeta vieja
+        run: rm -rf $BASE_PATH/$PROJECT_NAME
+
+      - name: Copiar código a carpeta destino
+        run: cp -r $GITHUB_WORKSPACE $BASE_PATH/$PROJECT_NAME
+
+      - name: Instalar dependencias composer
+        run: |
+          cd $BASE_PATH/$PROJECT_NAME
+          composer install --no-interaction --prefer-dist --optimize-autoloader
