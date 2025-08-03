@@ -26,3 +26,21 @@ jobs:
         run: |
           cd $BASE_PATH/$PROJECT_NAME
           composer install --no-interaction --prefer-dist --optimize-autoloader
+          
+      - name: Preparar archivo .env y configurar base de datos
+        run: |
+          cd $BASE_PATH/$PROJECT_NAME
+          if [ ! -f .env ]; then
+          cp .env.example .env
+          fi
+          php artisan key:generate --ansi
+          
+          sed -i "s/^APP_ENV=.*/APP_ENV=production/" .env
+          sed -i "s/^APP_DEBUG=.*/APP_DEBUG=false/" .env
+          sed -i "s/^DB_CONNECTION=.*/DB_CONNECTION=pgsql/" .env
+          sed -i "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" .env
+          sed -i "s/^DB_PORT=.*/DB_PORT=5432/" .env
+          sed -i "s/^DB_DATABASE=.*/DB_DATABASE=gestionhoteles/" .env
+          sed -i "s/^DB_USERNAME=.*/DB_USERNAME=gestionhoteles2024/" .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ubuntuhoteles2024205/" .env
+
