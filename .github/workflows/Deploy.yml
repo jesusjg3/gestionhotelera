@@ -14,7 +14,7 @@ jobs:
       BASE_PATH: /home/jesusjg3/programs # Cambia esta ruta si quieres otro path
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       - name: Eliminar carpeta vieja
         run: rm -rf $BASE_PATH/$PROJECT_NAME
