@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Eliminar carpeta vieja
-        run: rm -rf $BASE_PATH/$PROJECT_NAME
+        run: sudo rm -rf $BASE_PATH/$PROJECT_NAME
 
       - name: Copiar código a carpeta destino
         run: cp -r $GITHUB_WORKSPACE $BASE_PATH/$PROJECT_NAME
