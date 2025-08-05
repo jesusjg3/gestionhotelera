@@ -1,0 +1,70 @@
+name: Rollback Laravel deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref a desplegar (tag, rama o commit SHA). Ej: v1.2.0 o a1b2c3d'
+        required: true
+        default: 'main'  # cámbialo por la versión estable anterior que uses, p.ej. v1.2.0
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    env:
+      PROJECT_NAME: gestionhotelera
+      BASE_PATH: /home/jesusjg3/programs
+
+    steps:
+      # Fijar el checkout a una revisión concreta. Si quieres inmovilizar la acción, reemplaza @v3 por un SHA específico:
+      # Para obtener un SHA de una release concreta de actions/checkout, ve al repo oficial y copia el commit (opcional).
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Eliminar versión antigua en destino
+        run: rm -rf $BASE_PATH/$PROJECT_NAME
+
+      - name: Copiar código a carpeta destino
+        run: cp -r $GITHUB_WORKSPACE $BASE_PATH/$PROJECT_NAME
+
+      - name: Instalar dependencias composer
+        run: |
+          cd $BASE_PATH/$PROJECT_NAME
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Preparar archivo .env y configurar base de datos (rollback)
+        run: |
+          cd $BASE_PATH/$PROJECT_NAME
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+          php artisan key:generate --ansi
+
+          set_var() {
+            local key="$1"
+            local value="$2"
+            if grep -qE "^[# ]*${key}=" .env; then
+              sed -i "s|^[# ]*${key}=.*|${key}=${value}|" .env
+            else
+              echo "${key}=${value}" >> .env
+            fi
+          }
+
+          set_var APP_ENV production
+          set_var APP_DEBUG false
+          set_var DB_CONNECTION pgsql
+          set_var DB_HOST 127.0.0.1
+          set_var DB_PORT 5432
+          set_var DB_DATABASE gestionhoteles
+          set_var DB_USERNAME gestionhoteles2024
+          set_var DB_PASSWORD ubuntuhoteles2024205
+
+      - name: Ajustar permisos
+        run: |
+          sudo chown -R www-data:www-data $BASE_PATH/$PROJECT_NAME/storage
+          sudo chown -R www-data:www-data $BASE_PATH/$PROJECT_NAME/bootstrap/cache
+          sudo chmod -R 775 $BASE_PATH/$PROJECT_NAME/storage
+          sudo chmod -R 775 $BASE_PATH/$PROJECT_NAME/bootstrap/cache
